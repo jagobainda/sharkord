@@ -498,6 +498,48 @@ describe('/public', () => {
     expect(disposition).toInclude("filename*=UTF-8''");
   });
 
+  test.each([
+    ['Отчёт за март.txt', '_____ __ ____.txt'],
+    ['報告.txt', '__.txt'],
+    ['it’s €5.txt', 'it_s _5.txt'],
+    ['niño.txt', 'ni_o.txt']
+  ])(
+    'should serve a file named %s with an ascii fallback name',
+    async (name, fallbackName) => {
+      const content = 'non ascii name';
+      const tempFile = await upload(
+        new File([content], name, { type: 'text/plain' }),
+        token
+      );
+
+      const { caller } = await initTest();
+
+      const messageId = await caller.messages.send({
+        content: 'Message with file',
+        channelId: 1,
+        files: [tempFile.id]
+      });
+
+      const dbFile = await getFileByMessageId(messageId);
+
+      expect(dbFile?.originalName).toBe(name);
+
+      const response = await fetch(
+        `${testsBaseUrl}/public/${encodeURIComponent(dbFile!.name)}`
+      );
+
+      expect(response.status).toBe(200);
+
+      const disposition = response.headers.get('Content-Disposition');
+
+      expect(disposition).toInclude(`filename="${fallbackName}"`);
+      expect(disposition).toInclude(
+        `filename*=UTF-8''${encodeURIComponent(name)}`
+      );
+      expect(await response.text()).toBe(content);
+    }
+  );
+
   test('should not allow path traversal to read arbitrary files', async () => {
     const response = await fetch(`${testsBaseUrl}/public/../../../etc/passwd`);
 

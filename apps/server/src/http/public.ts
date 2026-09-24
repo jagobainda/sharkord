@@ -97,6 +97,7 @@ const publicRouteHandler = async (
 
   const safeFileName = dbFile.originalName
     .replace(/[\r\n]/g, '') // strip CR/LF to prevent header injection
+    .replace(/[^\x20-\x7E]/g, '_')
     .replace(/"/g, '\\"'); // escape double quotes for header safety
 
   const encodedFileName = encodeURIComponent(dbFile.originalName).replace(
